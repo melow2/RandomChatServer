@@ -5,143 +5,95 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.Executors;
 
-public class RandomChatServer extends BaseServer implements Runnable {
+public class RandomChatServer extends SocketManager implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(RandomChatServer.class);
 
-    // 메시지는 개행으로 구분한다.
-    private static char CR = (char) 0x0D;
-    private static char LF = (char) 0x0A;
-
-    public RandomChatServer() {
+    public RandomChatServer() throws Exception {
         listenAddress = new InetSocketAddress(ADDRESS, PORT);
+        selector = Selector.open();
+        ServerSocketChannel channel = ServerSocketChannel.open();
+        ServerSocket socket = channel.socket();
+        socket.bind(listenAddress);
+        channel.configureBlocking(false);
+        channel.register(selector, SelectionKey.OP_ACCEPT);
+        logger.info("RandomChatServer is ready..[ " + listenAddress.getAddress() + ":" + listenAddress.getPort() + "]");
     }
 
     @Override
     public void run() {
-        serverLog("RandomChatServer Running Start..[ "+listenAddress.getAddress()+":"+listenAddress.getPort()+"]");
-        try (Selector selector = Selector.open()) {
-            try (ServerSocketChannel serverChannel = ServerSocketChannel.open()) {
-
-                serverChannel.configureBlocking(false);                  // non-Blocking 설정
-                serverChannel.socket().bind(listenAddress);              // 서버 ip, port 설정
-                serverChannel.register(selector, SelectionKey.OP_ACCEPT);// 채널에 accept 대기 설정
-
-                // 셀렉터가 있을 경우.
-                while (selector.select() > 0) {
-                    Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
-                    while (keys.hasNext()) {
-                        SelectionKey key = keys.next();
-                        keys.remove();
-                        if (!key.isValid()) {
-                            continue;
-                        }
-                        // 접속일 경우..
-                        if (key.isAcceptable()) {
-                            this.accept(selector, key);
-                            // 수신일 경우..
-                        } else if (key.isReadable()) {
-                            this.receive(selector, key);
-                            // 발신일 경우..
-                        } else if (key.isWritable()) {
-                            this.send(selector, key);
+        logger.info("RandomChatServer Running Start..[ " + listenAddress.getAddress() + ":" + listenAddress.getPort() + "]");
+        /*
+         * 앞서 생성된 서버소켓채널에 대해 accept 상태 일때 알려달라고 selector에 등록 후 이벤트 대기.
+         * 클라이언트 접속 시 selector는 미리 등록했던 ServerSocketChannel에 이벤트가 발생했으므로. select는 1.
+         * */
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                // 감지된 이벤트가 있다면.
+                if (selector.select() > 0) {
+                    /*
+                     * 현재 selector에 등록된 채널 중 동작이 하나라도 실행 되는 경우.
+                     * 그 채널들을 SelectionKey의 Set에 추가 후 채널들의 키를 얻음.
+                     * */
+                    Set<SelectionKey> keys = selector.selectedKeys();
+                    Iterator<SelectionKey> iter = keys.iterator();
+                    while (iter.hasNext()) {
+                        SelectionKey selectionKey = iter.next();
+                        iter.remove();
+                        SelectableChannel channel = selectionKey.channel(); // 현재 채널이 하고 있는 동작에 대한 파악을 위한 것.
+                        if (channel instanceof ServerSocketChannel) {
+                            /*
+                             * ServerSocketChannel이라면, accept()를 호출해서
+                             * 접속 요청을 해온 상대방 소켓과 연결 될 수 있는 SocketChannel을 얻는다.
+                             * */
+                            ServerSocketChannel serverSocketChannel = (ServerSocketChannel) channel;
+                            SocketChannel socketChannel = serverSocketChannel.accept();
+                            if (socketChannel == null) {
+                                /*
+                                 * 현 시점의 ServerSocketChannel은 Non-Blocking 이기에
+                                 * 당장 접속이 없어도 블로킹 되지 않고, null을 던지므로 체크를 해줘야한다.
+                                 * */
+                                continue;
+                            }
+                            accept(socketChannel);
+                        } else {
+                            // 일반 소켓 채널인 경우 해당 채널을 얻어낸다.
+                            SocketChannel socketChannel = (SocketChannel) channel;
+                            executeChannelAction(socketChannel, selectionKey);
+                            // serverLog("[클라이언트 이벤트]: ");
                         }
                     }
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
-    // 접속시 호출 함수..
-    private void accept(Selector selector, SelectionKey key) {
-        try {
-            ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
-            SocketChannel channel = serverChannel.accept(); // accept을 해서 Socket 채널을 가져온다.
-            channel.configureBlocking(false);
-            Socket socket = channel.socket(); // 소켓 취득
-            SocketAddress remoteAddr = socket.getRemoteSocketAddress();
-            logger.info("Connected to: " + remoteAddr);
-            StringBuffer sb = new StringBuffer();   // 접속 Socket 단위로 사용되는 Buffer;
-            sb.append("Welcome server!\r\n>");
-            channel.register(selector, SelectionKey.OP_WRITE, sb);      // Socket 채널을 channel에 송신 등록한다
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // 수신시 호출 함수..
-    private void receive(Selector selector, SelectionKey key) {
-        try {
-            SocketChannel channel = (SocketChannel) key.channel(); // 키 채널을 가져온다.
-            channel.configureBlocking(false); // 채널 Non-blocking 설정
-            Socket socket = channel.socket(); // 소켓 취득
-            ByteBuffer buffer = ByteBuffer.allocate(1024); // Byte 버퍼 생성
-            // ***데이터 수신***
-            int size = channel.read(buffer);
-            // 수신 크기가 없으면 소켓 접속 종료. 클라이언트 종료 시.
-            if (size == -1) {
-                SocketAddress remoteAddr = socket.getRemoteSocketAddress();
-                System.out.println("Connection closed by client: " + remoteAddr);
-                channel.close();
-                socket.close();
-                key.cancel();
-                return;
+    private void executeChannelAction(SocketChannel socketChannel, SelectionKey selectionKey) throws IOException {
+        if (selectionKey.isConnectable()){
+            logger.info("[클라이언트와 연결 설정 성공]");
+            if(socketChannel.isConnectionPending()){
+                logger.info("[클라이언트와 연결 설정 마무리 중]");
+                socketChannel.finishConnect();
             }
-
-            byte[] data = new byte[size];
-            System.arraycopy(buffer.array(), 0, data, 0, size);
-            StringBuffer sb = (StringBuffer) key.attachment(); // StringBuffer 취득
-            sb.append(new String(data)); // 버퍼에 수신된 데이터 추가
-            // 데이터 끝이 개행 일 경우.
-            if (sb.length() > 2 && sb.charAt(sb.length() - 2) == CR && sb.charAt(sb.length() - 1) == LF) {
-                sb.setLength(sb.length() - 2); // 개행 삭제
-                String msg = sb.toString(); // 메시지를 콘솔에 표시한다.
-                System.out.println(msg);
-                // exit 경우 접속을 종료한다.
-                if ("exit".equals(msg)) {
-                    channel.close();
-                    socket.close();
-                    key.cancel();
-                    return;
-                }
-                sb.insert(0, "Echo - "); // Echo - 메시지> 의 형태로 재 전송.
-                sb.append("\r\n>"); // Socket 채널을 channel에 송신 등록한다
-                channel.register(selector, SelectionKey.OP_WRITE, sb);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+        }else if(selectionKey.isReadable()){
+            receive(selectionKey);
+        }else if(selectionKey.isWritable()){
+            send(selectionKey);
         }
     }
 
-    // 발신시 호출 함수
-    private void send(Selector selector, SelectionKey key) {
-        try {
-            SocketChannel channel = (SocketChannel) key.channel(); // 키 채널을 가져온다.
-            channel.configureBlocking(false); // 채널 Non-blocking 설정
-            StringBuffer sb = (StringBuffer) key.attachment(); // StringBuffer 취득
-            String data = sb.toString();
-            sb.setLength(0); // StringBuffer 초기화
-            ByteBuffer buffer = ByteBuffer.wrap(data.getBytes()); // byte 형식으로 변환
-            channel.write(buffer);// ***데이터 송신***
-            channel.register(selector, SelectionKey.OP_READ, sb); // Socket 채널을 channel에 수신 등록한다
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void execute() {
+    public static void execute() throws Exception {
         Executors.newSingleThreadExecutor().execute(new RandomChatServer());
     }
 }
