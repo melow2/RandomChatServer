@@ -1,7 +1,9 @@
 package com.khs.chat.main;
 
-import java.util.List;
+import java.io.IOException;
+import java.nio.channels.SocketChannel;
 
 public abstract class ManagementChatRoom {
-    public static List<SingleChatRoom> singleChatRooms;
+    public abstract Long enterSingleRoom(SocketChannel socketChannel) throws IOException, InterruptedException;
+    public abstract void broadcastSingleRoom(SocketChannel channel,Long roomNumber, String newClient, String protocol) throws IOException, InterruptedException;
 }

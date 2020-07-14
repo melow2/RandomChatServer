@@ -3,14 +3,16 @@ package com.khs.chat.main;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 
-public class SingleChatRoom {
-    ArrayList<SocketChannel> socketChannels;
-    public SingleChatRoom(SocketChannel socketChannel,String clientInfo){
-        this.socketChannels = new ArrayList<>();
-        addSocketChannel();
+public class SingleChatRoom extends SocketManager {
+    public Long roomNumber;
+    public ArrayList<SocketChannel> socketChannels = new ArrayList<>();
+
+    public SingleChatRoom(SocketChannel socketChannel, long seed) {
+        roomNumber = seed;
+        addClient(socketChannel);
     }
 
-    private void addSocketChannel() {
-
+    public void addClient(SocketChannel socketChannel){
+        socketChannels.add(socketChannel);
     }
 }

@@ -40,7 +40,7 @@ public class ServerAsyncConfig implements AsyncConfigurer {
     }
 
     /*
-     * Thread Process도중 에러 발생시
+     * Thread Process 도중 에러 발생시
      */
     @Override
     public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {

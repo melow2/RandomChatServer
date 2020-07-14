@@ -6,9 +6,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.Iterator;
 import java.util.Set;
@@ -17,6 +14,7 @@ import java.util.concurrent.Executors;
 public class RandomChatServer extends SocketManager implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(RandomChatServer.class);
+    private RandomChatRoom randomChatRoom;
 
     public RandomChatServer() throws Exception {
         listenAddress = new InetSocketAddress(ADDRESS, PORT);
@@ -26,6 +24,7 @@ public class RandomChatServer extends SocketManager implements Runnable {
         socket.bind(listenAddress);
         channel.configureBlocking(false);
         channel.register(selector, SelectionKey.OP_ACCEPT);
+        randomChatRoom = RandomChatRoom.getInstance();
         logger.info("RandomChatServer is ready..[ " + listenAddress.getAddress() + ":" + listenAddress.getPort() + "]");
     }
 
@@ -73,7 +72,7 @@ public class RandomChatServer extends SocketManager implements Runnable {
                         }
                     }
                 }
-            } catch (IOException e) {
+            } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
         }
@@ -88,8 +87,6 @@ public class RandomChatServer extends SocketManager implements Runnable {
             }
         }else if(selectionKey.isReadable()){
             receive(selectionKey);
-        }else if(selectionKey.isWritable()){
-            send(selectionKey);
         }
     }
 

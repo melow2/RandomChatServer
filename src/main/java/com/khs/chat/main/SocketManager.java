@@ -4,51 +4,73 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.StringTokenizer;
+
+import static com.khs.chat.main.MessageConstants.*;
 
 public abstract class SocketManager extends BaseServer {
     protected static Selector selector; // 어떤 채널이 어떤 IO를 할 수 있는지 알려주는 클래스.
     private static final Logger logger = LoggerFactory.getLogger(SocketManager.class);
-
-    // 접속시 호출 함수..
-    protected static void accept(SocketChannel socketChannel) throws IOException {
-        socketChannel.configureBlocking(false);
+    // 접속시 호출 함수.
+    protected static void accept(SocketChannel socketChannel) throws IOException, InterruptedException {
         Socket socket = socketChannel.socket(); // 소켓 취득
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
-        logger.info("Connected to: " + remoteAddr);
-        StringBuffer sb = new StringBuffer();   // 접속 Socket 단위로 사용되는 Buffer;
-        sb.append("Welcome server!\r\n>");
-        socketChannel.register(selector, SelectionKey.OP_WRITE,sb);
+        socketChannel.configureBlocking(false);
+        socketChannel.register(selector, SelectionKey.OP_READ,new StringBuffer());
+        logger.info("[ ** Connection Accept: " + remoteAddr+" ** ]");
     }
 
-    // 수신시 호출 함수..
-    protected static void receive(SelectionKey key) {
+    // 수신시 호출 함수.
+    protected static void receive(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel)key.channel();
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            channel.configureBlocking(false); // 채널은 블록킹 상태이기때문에 논블럭킹 설정.
             ByteBuffer buffer = ByteBuffer.allocate(2048*2048);
+            buffer.clear();
+            channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(buffer);
+            buffer.flip();
             if(size==-1){
                 disconnect(channel,key,remoteAddr);
                 return;
             }
             byte[] data = new byte[size];
             System.arraycopy(buffer.array(), 0, data, 0, size);
-            StringBuffer sb = new StringBuffer();
-            sb.append(new String(data)); // 버퍼에 수신된 데이터 추가
-            logger.info(sb.toString());
-        } catch (IOException e) {
+            String received = new String(data,"UTF-8");
+            messageProcessing(channel,received);
+        } catch (IOException | InterruptedException e) {
             disconnect(channel,key,remoteAddr);
+        }
+    }
+
+    private static void messageProcessing(SocketChannel channel, String received) throws IOException, InterruptedException {
+        StringTokenizer tokenizer = new StringTokenizer(received,"/");
+        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
+        String protocol = tokenizer.nextToken();
+        logger.info("[RECEIVE]: "+received);
+        switch (protocol){
+            // 서버 접속 시
+            case REQUIRE_ACCESS:
+                String clientInfo = tokenizer.nextToken();
+                logger.info("[클라이언트 정보]: "+clientInfo);
+                randomChatRoom.enterSingleRoom(channel);
+                break;
+            case MESSAGING:
+                logger.info("[메세지]: "+received);
+                String roomNumber = tokenizer.nextToken();
+                String message = tokenizer.nextToken();
+                randomChatRoom.broadcastSingleRoom(channel,Long.valueOf(roomNumber),protocol,message);
+                break;
         }
     }
 
@@ -64,15 +86,40 @@ public abstract class SocketManager extends BaseServer {
         channel.register(selector, SelectionKey.OP_READ); // Socket 채널을 channel에 수신 등록한다
     }
 
-    protected static void disconnect(SocketChannel channel, SelectionKey key, SocketAddress addr) {
-        logger.info(MessageConstants.CLIENT_CONNECTION_CLOSE+": "+addr);
+    protected static void disconnect(SocketChannel channel, SelectionKey key, SocketAddress addr) throws IOException {
+        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
+        HashMap<SocketChannel,Long> currentSingleUsers = randomChatRoom.currentSingleChatRoomUsers;
+        ArrayList<SingleChatRoom> singleChatRooms = (ArrayList<SingleChatRoom>) randomChatRoom.singleChatRooms;
+        Long roomNumber = currentSingleUsers.get(channel);
+
+        synchronized (singleChatRooms){
+            for(SingleChatRoom currentRoom:singleChatRooms){
+                if(currentRoom.roomNumber.equals(roomNumber)){
+                    singleChatRooms.remove(currentRoom);
+                    break;
+                }
+            }
+        }
+
+        synchronized (currentSingleUsers){
+            currentSingleUsers.remove(channel);
+        }
+
         try {
             channel.socket().close();
             channel.close();
             key.cancel();
+            logger.info("***********************************************");
+            logger.info(CLIENT_CONNECTION_CLOSE+": "+addr);
+            logger.info("[종료한 사용자 정보] - 방번호: "+String.valueOf(roomNumber));
+            logger.info("[현재 사용자]: "+currentSingleUsers.size());
+            logger.info("[현재 채팅방 ]: "+singleChatRooms.size());
+            logger.info("***********************************************\n");
+            randomChatRoom.broadcastSingleRoom(channel,roomNumber,QUIT_CLIENT,"낯선사람이 떠났습니다.");
         } catch (Exception e) {
             e.printStackTrace();
         }
+
     }
 
 }
