@@ -2,7 +2,9 @@ package com.khs.chat.main;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 
+import javax.annotation.Resource;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -15,6 +17,12 @@ public class RandomChatServer extends SocketManager implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(RandomChatServer.class);
     private RandomChatRoom randomChatRoom;
+
+    @Resource(name="serverAsyncTaskService")
+    private ServerAsyncTaskService serverAsyncTaskService;
+
+    @Resource(name= "serverAsyncConfig")
+    private ServerAsyncConfig serverAsyncConfig;
 
     public RandomChatServer() throws Exception {
         listenAddress = new InetSocketAddress(ADDRESS, PORT);

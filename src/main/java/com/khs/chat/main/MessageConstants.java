@@ -1,9 +1,13 @@
 package com.khs.chat.main;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 
 public abstract class MessageConstants {
@@ -12,16 +16,19 @@ public abstract class MessageConstants {
 
     protected static Charset charset = Charset.forName("UTF-8");
     protected static CharsetEncoder encoder = charset.newEncoder();
-
+    protected static CharsetDecoder decoder = charset.newDecoder();
+    protected static ByteBuffer buffer = ByteBuffer.allocateDirect(2048*2048);
+    protected static ByteBuffer readBuffer = ByteBuffer.allocate(2048*2048);
     protected static final String REQUIRE_ACCESS = "REQUIRE_ACCESS";
+    protected static final String RE_CONNECT = "RE_CONNECT";
     protected static final String MESSAGING = "MESSAGING";
     protected static final String CONNECTION ="CONNECTION";
     protected static final String NEW_CLIENT ="NEW_CLIENT";
     protected static final String QUIT_CLIENT ="QUIT_CLIENT";
     protected static final String MSG_DELIM="/";
+    private static final Logger logger = LoggerFactory.getLogger(MessageConstants.class);
 
     protected static ByteBuffer parseMessage(String msg) throws CharacterCodingException {
-        ByteBuffer buffer = ByteBuffer.allocate(2048*2048);
         buffer.clear();
         buffer = encoder.encode(CharBuffer.wrap(msg));
         return buffer;

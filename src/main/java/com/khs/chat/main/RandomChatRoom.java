@@ -5,11 +5,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.khs.chat.main.MessageConstants.*;
 
@@ -52,7 +50,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                 return roomNumber;
             } else {
                 singleChatRooms.add(createNewRoom(socketChannel, seed));
-                logger.info("[CREATE_NEW_ROOM] >> *CURRENT_ROOM_SIZE: " + singleChatRooms.size());
+                logger.info("[CREATE_NEW_ROOM] >> CURRENT_ROOM_SIZE: " + singleChatRooms.size());
                 broadcastSingleRoom(socketChannel,seed,CONNECTION,"낯선사람을 기다리고 있습니다..");
                 return seed;
             }
@@ -60,34 +58,42 @@ public class RandomChatRoom extends ManagementChatRoom {
     }
 
     @Override
-    public void broadcastSingleRoom(SocketChannel channel,Long roomNumber, String protocol, String message) throws IOException, InterruptedException {
+    public void broadcastSingleRoom(SocketChannel channel,Long roomNumber, String protocol, String message){
+//        logger.info("[BROADCAST]: "+roomNumber+"/"+protocol+"/"+message);
         switch (protocol) {
             case CONNECTION:    // 새로운 방 생성.
             case NEW_CLIENT:    // 새로운 사용자 연결.
             case QUIT_CLIENT:   // 사용자가 접속을 종료했을 경우.
-                for (Map.Entry<SocketChannel, Long> entry : currentSingleChatRoomUsers.entrySet()) {
-                    SocketChannel curChannel = entry.getKey();
-                    Long curRoomNumber = entry.getValue();
-                    if (roomNumber.equals(curRoomNumber)) {
-                        ByteBuffer buffer = parseMessage(protocol+MSG_DELIM +roomNumber+MSG_DELIM +message);
-                        while (buffer.hasRemaining())
-                            curChannel.write(buffer);
-                        buffer.flip();
+                try{
+                    for (Map.Entry<SocketChannel, Long> entry : currentSingleChatRoomUsers.entrySet()) {
+                        SocketChannel curChannel = entry.getKey();
+                        Long curRoomNumber = entry.getValue();
+                        if (roomNumber.equals(curRoomNumber)) {
+                            ByteBuffer buffer = parseMessage(protocol+MSG_DELIM +roomNumber+MSG_DELIM +message);
+                            while (buffer.hasRemaining()) {
+                                curChannel.write(buffer);
+                            }
+                            buffer.compact();
+                        }
                     }
-
+                }catch (IOException e){
+                    // broken pipe 에러 무시.
                 }
                 break;
-            case MESSAGING:
-                for (Map.Entry<SocketChannel, Long> entry : currentSingleChatRoomUsers.entrySet()) {
-                    SocketChannel curChannel = entry.getKey();
-                    Long curRoomNumber = entry.getValue();
-                    if (roomNumber.equals(curRoomNumber)&&curChannel!=channel) {
-                        logger.info("### [메세지 전송.]");
-                        ByteBuffer buffer = parseMessage(protocol+MSG_DELIM +curRoomNumber+MSG_DELIM +message);
-                        while (buffer.hasRemaining())
-                            curChannel.write(buffer);
-                        buffer.flip();
+            case MESSAGING:     // 메세지 주고 받음.
+                try {
+                    for (Map.Entry<SocketChannel, Long> entry : currentSingleChatRoomUsers.entrySet()) {
+                        SocketChannel curChannel = entry.getKey();
+                        Long curRoomNumber = entry.getValue();
+                        if (roomNumber.equals(curRoomNumber) && curChannel != channel) {
+                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + curRoomNumber + MSG_DELIM + message);
+                            while (buffer.hasRemaining())
+                                curChannel.write(buffer);
+                            buffer.compact();
+                        }
                     }
+                }catch (IOException e){
+                    // broken pipe 에러 무시.
                 }
                 break;
         }

@@ -10,8 +10,6 @@ import org.springframework.web.servlet.ModelAndView;
 
 import javax.annotation.Resource;
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.util.concurrent.Executors;
 
 @Controller
 @RequestMapping(value = MainController.URL+"*", method = RequestMethod.GET)
@@ -25,15 +23,16 @@ public class MainController {
 
     @Resource(name= "serverAsyncConfig")
     private ServerAsyncConfig serverAsyncConfig;
+    private RandomChatRoom singleChatRoom;
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
-    public ModelAndView home(Model model){
+    public ModelAndView home(Model model) throws IOException {
         ModelAndView mav = new ModelAndView("main");
+        singleChatRoom= RandomChatRoom.getInstance();
         logger.info("MainController()");
-        //mav.addObject("ableToRunThread", serverAsyncConfig.checkSampleTaskExecute());
+        // mav.addObject("ableToRunThread", serverAsyncConfig.checkSampleTaskExecute());
+        mav.addObject("singleRoomUserCount",singleChatRoom.currentSingleChatRoomUsers.size());
         return mav;
     }
-
-
 
 }

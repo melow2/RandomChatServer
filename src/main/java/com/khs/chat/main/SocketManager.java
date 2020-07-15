@@ -14,6 +14,7 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringTokenizer;
+import java.util.Timer;
 
 import static com.khs.chat.main.MessageConstants.*;
 
@@ -35,17 +36,16 @@ public abstract class SocketManager extends BaseServer {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            ByteBuffer buffer = ByteBuffer.allocate(2048*2048);
-            buffer.clear();
+            readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
-            int size = channel.read(buffer);
+            int size = channel.read(readBuffer);
             buffer.flip();
             if(size==-1){
                 disconnect(channel,key,remoteAddr);
                 return;
             }
             byte[] data = new byte[size];
-            System.arraycopy(buffer.array(), 0, data, 0, size);
+            System.arraycopy(readBuffer.array(), 0, data, 0, size);
             String received = new String(data,"UTF-8");
             messageProcessing(channel,received);
         } catch (IOException | InterruptedException e) {
@@ -57,7 +57,7 @@ public abstract class SocketManager extends BaseServer {
         StringTokenizer tokenizer = new StringTokenizer(received,"/");
         RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
         String protocol = tokenizer.nextToken();
-        logger.info("[RECEIVE]: "+received);
+        logger.info("[RECEIVED]: "+received);
         switch (protocol){
             // 서버 접속 시
             case REQUIRE_ACCESS:
@@ -66,12 +66,38 @@ public abstract class SocketManager extends BaseServer {
                 randomChatRoom.enterSingleRoom(channel);
                 break;
             case MESSAGING:
-                logger.info("[메세지]: "+received);
                 String roomNumber = tokenizer.nextToken();
                 String message = tokenizer.nextToken();
                 randomChatRoom.broadcastSingleRoom(channel,Long.valueOf(roomNumber),protocol,message);
                 break;
+            case RE_CONNECT:
+//                logger.info("[새로운 사용자 다시 연결]");
+                String currentRoomNumber = tokenizer.nextToken();
+                String exitMessage = tokenizer.nextToken();
+                removeSingleRoom(channel);
+                randomChatRoom.broadcastSingleRoom(channel,Long.valueOf(currentRoomNumber),QUIT_CLIENT,exitMessage);
+                randomChatRoom.enterSingleRoom(channel);
+                break;
         }
+    }
+
+    private static Long removeSingleRoom(SocketChannel channel) throws IOException {
+        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
+        HashMap<SocketChannel,Long> currentSingleUsers = randomChatRoom.currentSingleChatRoomUsers;
+        ArrayList<SingleChatRoom> singleChatRooms = (ArrayList<SingleChatRoom>) randomChatRoom.singleChatRooms;
+        Long roomNumber = currentSingleUsers.get(channel);
+        synchronized (singleChatRooms){
+            for(SingleChatRoom currentRoom:singleChatRooms){
+                if(currentRoom.roomNumber.equals(roomNumber)){
+                    singleChatRooms.remove(currentRoom);
+                    break;
+                }
+            }
+        }
+        synchronized (currentSingleUsers){
+            currentSingleUsers.remove(channel);
+        }
+        return roomNumber;
     }
 
     // 발신시 호출 함수
@@ -87,24 +113,7 @@ public abstract class SocketManager extends BaseServer {
     }
 
     protected static void disconnect(SocketChannel channel, SelectionKey key, SocketAddress addr) throws IOException {
-        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
-        HashMap<SocketChannel,Long> currentSingleUsers = randomChatRoom.currentSingleChatRoomUsers;
-        ArrayList<SingleChatRoom> singleChatRooms = (ArrayList<SingleChatRoom>) randomChatRoom.singleChatRooms;
-        Long roomNumber = currentSingleUsers.get(channel);
-
-        synchronized (singleChatRooms){
-            for(SingleChatRoom currentRoom:singleChatRooms){
-                if(currentRoom.roomNumber.equals(roomNumber)){
-                    singleChatRooms.remove(currentRoom);
-                    break;
-                }
-            }
-        }
-
-        synchronized (currentSingleUsers){
-            currentSingleUsers.remove(channel);
-        }
-
+        Long roomNumber = removeSingleRoom(channel);
         try {
             channel.socket().close();
             channel.close();
@@ -112,14 +121,13 @@ public abstract class SocketManager extends BaseServer {
             logger.info("***********************************************");
             logger.info(CLIENT_CONNECTION_CLOSE+": "+addr);
             logger.info("[종료한 사용자 정보] - 방번호: "+String.valueOf(roomNumber));
-            logger.info("[현재 사용자]: "+currentSingleUsers.size());
-            logger.info("[현재 채팅방 ]: "+singleChatRooms.size());
+            logger.info("[현재 사용자]: "+RandomChatRoom.getInstance().currentSingleChatRoomUsers.size());
+            logger.info("[현재 채팅방 ]: "+RandomChatRoom.getInstance().singleChatRooms.size());
             logger.info("***********************************************\n");
-            randomChatRoom.broadcastSingleRoom(channel,roomNumber,QUIT_CLIENT,"낯선사람이 떠났습니다.");
+            RandomChatRoom.getInstance().broadcastSingleRoom(channel,roomNumber,QUIT_CLIENT,"낯선사람이 떠났습니다.");
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
 }

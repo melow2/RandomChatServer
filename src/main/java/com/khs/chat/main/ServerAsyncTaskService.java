@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -23,8 +24,8 @@ public class ServerAsyncTaskService{
     private static final Logger logger = LoggerFactory.getLogger(ServerAsyncTaskService.class);
 
     @PostConstruct
-    public void executeServer() throws Exception {
-        logger.info("executeServer()");
+    public void initServerThread() throws Exception {
         RandomChatServer.execute();
     }
+
 }

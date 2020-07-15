@@ -3,7 +3,7 @@ package com.khs.chat.main;
 import java.net.InetSocketAddress;
 
 public abstract class BaseServer {
-    protected static final String ADDRESS = "localhost";
-    protected static final int PORT = 8686;
+    protected static final String ADDRESS = "203.245.44.15";
+    protected static final int PORT = 45555;
     protected InetSocketAddress listenAddress;
 }
