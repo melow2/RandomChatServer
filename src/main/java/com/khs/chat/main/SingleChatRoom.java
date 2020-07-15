@@ -12,7 +12,7 @@ public class SingleChatRoom extends SocketManager {
         addClient(socketChannel);
     }
 
-    public void addClient(SocketChannel socketChannel){
+    public void addClient(SocketChannel socketChannel) {
         socketChannels.add(socketChannel);
     }
 }

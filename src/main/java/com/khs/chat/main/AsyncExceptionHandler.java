@@ -11,7 +11,7 @@ public class AsyncExceptionHandler implements AsyncUncaughtExceptionHandler {
         System.out.println("Thread Error Exception");
         System.out.println("exception Message :: " + throwable.getMessage());
         System.out.println("method name :: " + method.getName());
-        for(Object param : obj) {
+        for (Object param : obj) {
             System.out.println("param Val ::: " + param);
         }
     }

@@ -23,10 +23,10 @@ public class ServerAsyncConfig implements AsyncConfigurer {
     private static int TASK_QUEUE_CAPACITY = 0;                   //QUEUE 수
     private final String EXECUTOR_BEAN_NAME = "EXECUTOR_SERVER";  //Thread Bean Name
 
-    @Resource(name="EXECUTOR_SERVER")
+    @Resource(name = "EXECUTOR_SERVER")
     private ThreadPoolTaskExecutor executor1;
 
-    @Bean(name=EXECUTOR_BEAN_NAME)
+    @Bean(name = EXECUTOR_BEAN_NAME)
     @Override
     public Executor getAsyncExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -53,7 +53,7 @@ public class ServerAsyncConfig implements AsyncConfigurer {
     public int checkSampleTaskExecute() {
         boolean result = true;
         System.out.println("활성 Task 수 :::: " + executor1.getActiveCount());
-        if(executor1.getActiveCount() >= (TASK_MAX_POOL_SIZE + TASK_QUEUE_CAPACITY)) {
+        if (executor1.getActiveCount() >= (TASK_MAX_POOL_SIZE + TASK_QUEUE_CAPACITY)) {
             result = false;
         }
         return executor1.getActiveCount();

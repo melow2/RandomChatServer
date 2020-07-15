@@ -17,15 +17,20 @@ public abstract class MessageConstants {
     protected static Charset charset = Charset.forName("UTF-8");
     protected static CharsetEncoder encoder = charset.newEncoder();
     protected static CharsetDecoder decoder = charset.newDecoder();
-    protected static ByteBuffer buffer = ByteBuffer.allocateDirect(2048*2048);
-    protected static ByteBuffer readBuffer = ByteBuffer.allocate(2048*2048);
+    protected static ByteBuffer buffer = ByteBuffer.allocateDirect(2048 * 2048);
+    protected static ByteBuffer readBuffer = ByteBuffer.allocate(2048 * 2048);
+
     protected static final String REQUIRE_ACCESS = "REQUIRE_ACCESS";
     protected static final String RE_CONNECT = "RE_CONNECT";
     protected static final String MESSAGING = "MESSAGING";
-    protected static final String CONNECTION ="CONNECTION";
-    protected static final String NEW_CLIENT ="NEW_CLIENT";
-    protected static final String QUIT_CLIENT ="QUIT_CLIENT";
-    protected static final String MSG_DELIM="/";
+    protected static final String CONNECTION = "CONNECTION";
+    protected static final String NEW_CLIENT = "NEW_CLIENT";
+    protected static final String QUIT_CLIENT = "QUIT_CLIENT";
+    protected static final String MSG_DELIM = "/";
+
+    protected static final String MSG_WAITING_CLIENT = "낯선사람을 기다리고 있습니다..";
+    protected static final String MSG_MEETING_CLIENT = "낯선사람을 만났습니다.";
+    protected static final String MSG_QUIT_CLIENT = "낯선사람이 떠났습니다.";
     private static final Logger logger = LoggerFactory.getLogger(MessageConstants.class);
 
     protected static ByteBuffer parseMessage(String msg) throws CharacterCodingException {

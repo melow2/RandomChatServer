@@ -2,7 +2,6 @@ package com.khs.chat.main;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 
 import javax.annotation.Resource;
 import java.io.IOException;
@@ -18,10 +17,10 @@ public class RandomChatServer extends SocketManager implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(RandomChatServer.class);
     private RandomChatRoom randomChatRoom;
 
-    @Resource(name="serverAsyncTaskService")
+    @Resource(name = "serverAsyncTaskService")
     private ServerAsyncTaskService serverAsyncTaskService;
 
-    @Resource(name= "serverAsyncConfig")
+    @Resource(name = "serverAsyncConfig")
     private ServerAsyncConfig serverAsyncConfig;
 
     public RandomChatServer() throws Exception {
@@ -87,13 +86,13 @@ public class RandomChatServer extends SocketManager implements Runnable {
     }
 
     private void executeChannelAction(SocketChannel socketChannel, SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isConnectable()){
+        if (selectionKey.isConnectable()) {
             logger.info("[클라이언트와 연결 설정 성공]");
-            if(socketChannel.isConnectionPending()){
+            if (socketChannel.isConnectionPending()) {
                 logger.info("[클라이언트와 연결 설정 마무리 중]");
                 socketChannel.finishConnect();
             }
-        }else if(selectionKey.isReadable()){
+        } else if (selectionKey.isReadable()) {
             receive(selectionKey);
         }
     }

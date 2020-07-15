@@ -5,9 +5,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.khs.chat.main.MessageConstants.*;
 
@@ -32,7 +34,7 @@ public class RandomChatRoom extends ManagementChatRoom {
             // 생성된 방이 없다면.
             singleChatRooms.add(createNewRoom(socketChannel, seed));
             logger.info("[CREATE_NEW_ROOM] >> *CURRENT_ROOM_SIZE: " + singleChatRooms.size());
-            broadcastSingleRoom(socketChannel,seed,CONNECTION,"낯선사람을 기다리고 있습니다..");
+            broadcastSingleRoom(socketChannel, seed, CONNECTION, MSG_WAITING_CLIENT);
             return seed;
         } else {
             int roomPosition = singleChatRooms.size() - 1;
@@ -46,37 +48,37 @@ public class RandomChatRoom extends ManagementChatRoom {
                 singleChatRooms.set(roomPosition, lastRoom);
                 logger.info("[ENTER] >> ENTER IN ROOM " + socketChannel.getLocalAddress());
                 logger.info("[ENTER] >> CURRENT_ROOM_INFO: " + roomNumber + "/ " + socketChannels.size());
-                broadcastSingleRoom(socketChannel,roomNumber,NEW_CLIENT,"낯선사람을 만났습니다.");
+                broadcastSingleRoom(socketChannel, roomNumber, NEW_CLIENT, MSG_MEETING_CLIENT);
                 return roomNumber;
             } else {
                 singleChatRooms.add(createNewRoom(socketChannel, seed));
                 logger.info("[CREATE_NEW_ROOM] >> CURRENT_ROOM_SIZE: " + singleChatRooms.size());
-                broadcastSingleRoom(socketChannel,seed,CONNECTION,"낯선사람을 기다리고 있습니다..");
+                broadcastSingleRoom(socketChannel, seed, CONNECTION, MSG_WAITING_CLIENT);
                 return seed;
             }
         }
     }
 
     @Override
-    public void broadcastSingleRoom(SocketChannel channel,Long roomNumber, String protocol, String message){
+    public void broadcastSingleRoom(SocketChannel channel, Long roomNumber, String protocol, String message) {
 //        logger.info("[BROADCAST]: "+roomNumber+"/"+protocol+"/"+message);
         switch (protocol) {
             case CONNECTION:    // 새로운 방 생성.
             case NEW_CLIENT:    // 새로운 사용자 연결.
             case QUIT_CLIENT:   // 사용자가 접속을 종료했을 경우.
-                try{
+                try {
                     for (Map.Entry<SocketChannel, Long> entry : currentSingleChatRoomUsers.entrySet()) {
                         SocketChannel curChannel = entry.getKey();
                         Long curRoomNumber = entry.getValue();
                         if (roomNumber.equals(curRoomNumber)) {
-                            ByteBuffer buffer = parseMessage(protocol+MSG_DELIM +roomNumber+MSG_DELIM +message);
+                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + roomNumber + MSG_DELIM + message);
                             while (buffer.hasRemaining()) {
                                 curChannel.write(buffer);
                             }
                             buffer.compact();
                         }
                     }
-                }catch (IOException e){
+                } catch (IOException e) {
                     // broken pipe 에러 무시.
                 }
                 break;
@@ -92,7 +94,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                             buffer.compact();
                         }
                     }
-                }catch (IOException e){
+                } catch (IOException e) {
                     // broken pipe 에러 무시.
                 }
                 break;

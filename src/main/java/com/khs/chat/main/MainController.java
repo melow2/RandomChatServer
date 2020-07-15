@@ -12,26 +12,26 @@ import javax.annotation.Resource;
 import java.io.IOException;
 
 @Controller
-@RequestMapping(value = MainController.URL+"*", method = RequestMethod.GET)
+@RequestMapping(value = MainController.URL + "*", method = RequestMethod.GET)
 public class MainController {
 
     private static final Logger logger = LoggerFactory.getLogger(MainController.class);
     protected static final String URL = "/";
 
-    @Resource(name="serverAsyncTaskService")
+    @Resource(name = "serverAsyncTaskService")
     private ServerAsyncTaskService serverAsyncTaskService;
 
-    @Resource(name= "serverAsyncConfig")
+    @Resource(name = "serverAsyncConfig")
     private ServerAsyncConfig serverAsyncConfig;
     private RandomChatRoom singleChatRoom;
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
     public ModelAndView home(Model model) throws IOException {
         ModelAndView mav = new ModelAndView("main");
-        singleChatRoom= RandomChatRoom.getInstance();
+        singleChatRoom = RandomChatRoom.getInstance();
         logger.info("MainController()");
         // mav.addObject("ableToRunThread", serverAsyncConfig.checkSampleTaskExecute());
-        mav.addObject("singleRoomUserCount",singleChatRoom.currentSingleChatRoomUsers.size());
+        mav.addObject("singleRoomUserCount", singleChatRoom.currentSingleChatRoomUsers.size());
         return mav;
     }
 
