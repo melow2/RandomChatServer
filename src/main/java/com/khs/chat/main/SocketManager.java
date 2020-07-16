@@ -33,10 +33,11 @@ public abstract class SocketManager extends BaseServer {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
+            ByteBuffer readBuffer = ByteBuffer.allocate(1024*10);
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
-            buffer.flip();
+            readBuffer.flip();
             if (size == -1) {
                 disconnect(channel, key, remoteAddr);
                 return;
@@ -45,27 +46,28 @@ public abstract class SocketManager extends BaseServer {
             System.arraycopy(readBuffer.array(), 0, data, 0, size);
             String received = new String(data, "UTF-8");
             messageProcessing(channel, received);
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             disconnect(channel, key, remoteAddr);
         }
     }
 
-    private static void messageProcessing(SocketChannel channel, String received) throws IOException, InterruptedException {
+    private static void messageProcessing(SocketChannel channel, String received) throws IOException{
         StringTokenizer tokenizer = new StringTokenizer(received, "/");
         RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
         String protocol = tokenizer.nextToken();
-//        logger.info("[RECEIVED]: " + received);
+        logger.info("[RECEIVED]: " + received);
         switch (protocol) {
             // 서버 접속 시
             case REQUIRE_ACCESS:
-                String clientInfo = tokenizer.nextToken();
-                logger.info("[클라이언트 정보]: " + clientInfo);
+                String acceptMessage = tokenizer.nextToken();
+                logger.info("[클라이언트 정보]: " + acceptMessage);
                 randomChatRoom.enterSingleRoom(channel);
                 break;
             case MESSAGING:
                 String roomNumber = tokenizer.nextToken();
                 String message = tokenizer.nextToken();
-                randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(roomNumber), protocol, message);
+                String clientInfo = tokenizer.nextToken();
+                randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(roomNumber), protocol, message+MSG_DELIM+clientInfo);
                 break;
             case RE_CONNECT:
 //                logger.info("[새로운 사용자 다시 연결]");

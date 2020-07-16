@@ -17,9 +17,6 @@ public abstract class MessageConstants {
     protected static Charset charset = Charset.forName("UTF-8");
     protected static CharsetEncoder encoder = charset.newEncoder();
     protected static CharsetDecoder decoder = charset.newDecoder();
-    protected static ByteBuffer buffer = ByteBuffer.allocateDirect(2048 * 2048);
-    protected static ByteBuffer readBuffer = ByteBuffer.allocate(2048 * 2048);
-
     protected static final String REQUIRE_ACCESS = "REQUIRE_ACCESS";
     protected static final String RE_CONNECT = "RE_CONNECT";
     protected static final String MESSAGING = "MESSAGING";
@@ -34,9 +31,9 @@ public abstract class MessageConstants {
     private static final Logger logger = LoggerFactory.getLogger(MessageConstants.class);
 
     protected static ByteBuffer parseMessage(String msg) throws CharacterCodingException {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
         buffer.clear();
         buffer = encoder.encode(CharBuffer.wrap(msg));
         return buffer;
     }
-
 }

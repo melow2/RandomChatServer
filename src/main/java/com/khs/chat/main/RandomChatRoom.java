@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.*;
@@ -25,7 +26,7 @@ public class RandomChatRoom extends ManagementChatRoom {
     }
 
     @Override
-    public Long enterSingleRoom(SocketChannel socketChannel) throws IOException, InterruptedException {
+    public Long enterSingleRoom(SocketChannel socketChannel) throws IOException {
         long seed = System.currentTimeMillis(); // 방번호를 추가.
         if (singleChatRooms.size() == 0) {
             // 생성된 방이 없다면.
@@ -76,7 +77,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         }
                     }
                 } catch (IOException e) {
-                    // e.printStackTrace();
+                    e.printStackTrace();
                     // broken pipe 에러 무시.
                 }
                 break;
@@ -86,7 +87,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         SocketChannel curChannel = entry.getKey();
                         Long curRoomNumber = entry.getValue();
                         if (roomNumber.equals(curRoomNumber)&&curChannel!=channel) {
-                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + roomNumber + MSG_DELIM + message);
+                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + roomNumber + MSG_DELIM + MSG_QUIT_CLIENT);
                             while (buffer.hasRemaining()) {
                                 curChannel.write(buffer);
                             }
@@ -104,7 +105,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         SocketChannel curChannel = entry.getKey();
                         Long curRoomNumber = entry.getValue();
                         if (roomNumber.equals(curRoomNumber) && curChannel != channel) {
-                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + curRoomNumber + MSG_DELIM + message);
+                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + curRoomNumber + MSG_DELIM + message +MSG_DELIM);
                             while (buffer.hasRemaining())
                                 curChannel.write(buffer);
                             buffer.compact();
