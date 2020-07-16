@@ -6,18 +6,15 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.khs.chat.main.MessageConstants.*;
 
 public class RandomChatRoom extends ManagementChatRoom {
 
     private static RandomChatRoom instance = null;
-    protected List<SingleChatRoom> singleChatRooms = new ArrayList<>();
-    protected HashMap<SocketChannel, Long> currentSingleChatRoomUsers = new HashMap<>();
+    protected List<SingleChatRoom> singleChatRooms = Collections.synchronizedList(new ArrayList<>());
+    protected Map<SocketChannel, Long> currentSingleChatRoomUsers = Collections.synchronizedMap(new HashMap<>());
     private static final Logger logger = LoggerFactory.getLogger(RandomChatRoom.class);
 
     public static RandomChatRoom getInstance() throws IOException {
@@ -79,6 +76,26 @@ public class RandomChatRoom extends ManagementChatRoom {
                         }
                     }
                 } catch (IOException e) {
+                    logger.debug("*********************QUIT_CLIENT*********************");
+                    e.printStackTrace();
+                    // broken pipe 에러 무시.
+                }
+                break;
+            case RE_CONNECT:
+                try {
+                    for (Map.Entry<SocketChannel, Long> entry : currentSingleChatRoomUsers.entrySet()) {
+                        SocketChannel curChannel = entry.getKey();
+                        Long curRoomNumber = entry.getValue();
+                        if (roomNumber.equals(curRoomNumber)&&curChannel!=channel) {
+                            ByteBuffer buffer = parseMessage(protocol + MSG_DELIM + roomNumber + MSG_DELIM + message);
+                            while (buffer.hasRemaining()) {
+                                curChannel.write(buffer);
+                            }
+                            buffer.compact();
+                        }
+                    }
+                } catch (IOException e) {
+//                    e.printStackTrace();
                     // broken pipe 에러 무시.
                 }
                 break;
@@ -95,6 +112,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         }
                     }
                 } catch (IOException e) {
+//                    e.printStackTrace();
                     // broken pipe 에러 무시.
                 }
                 break;

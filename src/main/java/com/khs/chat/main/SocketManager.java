@@ -10,9 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.StringTokenizer;
+import java.util.*;
 
 import static com.khs.chat.main.MessageConstants.*;
 
@@ -56,7 +54,7 @@ public abstract class SocketManager extends BaseServer {
         StringTokenizer tokenizer = new StringTokenizer(received, "/");
         RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
         String protocol = tokenizer.nextToken();
-        logger.info("[RECEIVED]: " + received);
+//        logger.info("[RECEIVED]: " + received);
         switch (protocol) {
             // 서버 접속 시
             case REQUIRE_ACCESS:
@@ -74,7 +72,7 @@ public abstract class SocketManager extends BaseServer {
                 String currentRoomNumber = tokenizer.nextToken();
                 String exitMessage = tokenizer.nextToken();
                 removeSingleRoom(channel);
-                randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(currentRoomNumber), QUIT_CLIENT, exitMessage);
+                randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(currentRoomNumber), protocol, exitMessage);
                 randomChatRoom.enterSingleRoom(channel);
                 break;
         }
@@ -82,19 +80,15 @@ public abstract class SocketManager extends BaseServer {
 
     private static Long removeSingleRoom(SocketChannel channel) throws IOException {
         RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
-        HashMap<SocketChannel, Long> currentSingleUsers = randomChatRoom.currentSingleChatRoomUsers;
-        ArrayList<SingleChatRoom> singleChatRooms = (ArrayList<SingleChatRoom>) randomChatRoom.singleChatRooms;
+        Map<SocketChannel, Long> currentSingleUsers = Collections.synchronizedMap(randomChatRoom.currentSingleChatRoomUsers);
+        List<SingleChatRoom> singleChatRooms = Collections.synchronizedList(randomChatRoom.singleChatRooms);
         Long roomNumber = currentSingleUsers.get(channel);
-        synchronized (singleChatRooms) {
-            for (SingleChatRoom currentRoom : singleChatRooms) {
-                if (currentRoom.roomNumber.equals(roomNumber)) {
-                    singleChatRooms.remove(currentRoom);
-                    break;
-                }
+
+        for (SingleChatRoom currentRoom : singleChatRooms) {
+            if (currentRoom.roomNumber.equals(roomNumber) || currentRoom.socketChannels.contains(channel)) {
+                singleChatRooms.remove(currentRoom);
+                break;
             }
-        }
-        synchronized (currentSingleUsers) {
-            currentSingleUsers.remove(channel);
         }
         return roomNumber;
     }
@@ -113,6 +107,13 @@ public abstract class SocketManager extends BaseServer {
 
     protected static void disconnect(SocketChannel channel, SelectionKey key, SocketAddress addr) throws IOException {
         Long roomNumber = removeSingleRoom(channel);
+        Iterator it = RandomChatRoom.getInstance().currentSingleChatRoomUsers.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<SocketChannel, Long> item = (Map.Entry<SocketChannel, Long>) it.next();
+            if (item.getKey().equals(channel)) {
+                it.remove();
+            }
+        }
         try {
             channel.socket().close();
             channel.close();
