@@ -31,7 +31,8 @@ public class MainController {
         singleChatRoom = RandomChatRoom.getInstance();
         logger.info("MainController()");
         // mav.addObject("ableToRunThread", serverAsyncConfig.checkSampleTaskExecute());
-        mav.addObject("singleRoomUserCount", singleChatRoom.currentSingleChatRoomUsers.size());
+        mav.addObject("singleChatRooms", singleChatRoom.singleChatRooms.size());
+        mav.addObject("currentSingleChatRoomUsers", singleChatRoom.currentSingleChatRoomUsers.size());
         return mav;
     }
 

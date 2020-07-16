@@ -30,7 +30,7 @@ public class RandomChatRoom extends ManagementChatRoom {
         if (singleChatRooms.size() == 0) {
             // 생성된 방이 없다면.
             singleChatRooms.add(createNewRoom(socketChannel, seed));
-            logger.info("[CREATE_NEW_ROOM] >> *CURRENT_ROOM_SIZE: " + singleChatRooms.size());
+            //logger.info("[CREATE_NEW_ROOM] >> CURRENT_ROOM_SIZE: " + singleChatRooms.size());
             broadcastSingleRoom(socketChannel, seed, CONNECTION, MSG_WAITING_CLIENT);
             return seed;
         } else {
@@ -43,13 +43,13 @@ public class RandomChatRoom extends ManagementChatRoom {
                 lastRoom.addClient(socketChannel);
                 currentSingleChatRoomUsers.put(socketChannel, roomNumber); // 사용자 리스트에 추가.
                 singleChatRooms.set(roomPosition, lastRoom);
-                logger.info("[ENTER] >> ENTER IN ROOM " + socketChannel.getLocalAddress());
-                logger.info("[ENTER] >> CURRENT_ROOM_INFO: " + roomNumber + "/ " + socketChannels.size());
+                // logger.info("[ENTER] >> ENTER IN ROOM " + socketChannel.getLocalAddress());
+                // logger.info("[ENTER] >> CURRENT_ROOM_INFO: " + roomNumber + "/ " + socketChannels.size());
                 broadcastSingleRoom(socketChannel, roomNumber, NEW_CLIENT, MSG_MEETING_CLIENT);
                 return roomNumber;
             } else {
                 singleChatRooms.add(createNewRoom(socketChannel, seed));
-                logger.info("[CREATE_NEW_ROOM] >> CURRENT_ROOM_SIZE: " + singleChatRooms.size());
+                // logger.info("[CREATE_NEW_ROOM] >> CURRENT_ROOM_SIZE: " + singleChatRooms.size());
                 broadcastSingleRoom(socketChannel, seed, CONNECTION, MSG_WAITING_CLIENT);
                 return seed;
             }
@@ -76,8 +76,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         }
                     }
                 } catch (IOException e) {
-                    logger.debug("*********************QUIT_CLIENT*********************");
-                    e.printStackTrace();
+                    // e.printStackTrace();
                     // broken pipe 에러 무시.
                 }
                 break;
@@ -95,7 +94,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         }
                     }
                 } catch (IOException e) {
-//                    e.printStackTrace();
+                    // e.printStackTrace();
                     // broken pipe 에러 무시.
                 }
                 break;
@@ -112,7 +111,7 @@ public class RandomChatRoom extends ManagementChatRoom {
                         }
                     }
                 } catch (IOException e) {
-//                    e.printStackTrace();
+                    // e.printStackTrace();
                     // broken pipe 에러 무시.
                 }
                 break;
@@ -122,7 +121,7 @@ public class RandomChatRoom extends ManagementChatRoom {
     private SingleChatRoom createNewRoom(SocketChannel socketChannel, long seed) throws IOException {
         currentSingleChatRoomUsers.put(socketChannel, seed); // 사용자 리스트에 추가.
         SingleChatRoom singleChatRoom = new SingleChatRoom(socketChannel, seed);
-        logger.info("[CREATE_NEW_ROOM] >> CREATE ROOM BY " + socketChannel.getLocalAddress());
+        logger.info("[CREATE_NEW_ROOM] >> CREATE ROOM BY " + socketChannel.socket().getInetAddress());
         return singleChatRoom;
     }
 }
