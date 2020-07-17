@@ -31,7 +31,7 @@ public abstract class MessageConstants {
     private static final Logger logger = LoggerFactory.getLogger(MessageConstants.class);
 
     protected static ByteBuffer parseMessage(String msg) throws CharacterCodingException {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(1200*3);
         buffer.clear();
         buffer = encoder.encode(CharBuffer.wrap(msg));
         return buffer;
