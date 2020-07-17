@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.*;
@@ -122,7 +121,7 @@ public class RandomChatRoom extends ManagementChatRoom {
     private SingleChatRoom createNewRoom(SocketChannel socketChannel, long seed) throws IOException {
         currentSingleChatRoomUsers.put(socketChannel, seed); // 사용자 리스트에 추가.
         SingleChatRoom singleChatRoom = new SingleChatRoom(socketChannel, seed);
-        logger.info("[CREATE_NEW_ROOM] >> CREATE ROOM BY " + socketChannel.socket().getInetAddress());
+        // logger.info("[CREATE_NEW_ROOM] >> CREATE ROOM BY " + socketChannel.socket().getInetAddress());
         return singleChatRoom;
     }
 }

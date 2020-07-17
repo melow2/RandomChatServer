@@ -33,7 +33,7 @@ public abstract class SocketManager extends BaseServer {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            ByteBuffer readBuffer = ByteBuffer.allocate(1024*10);
+            ByteBuffer readBuffer = ByteBuffer.allocate(1024*500);
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
@@ -45,38 +45,44 @@ public abstract class SocketManager extends BaseServer {
             byte[] data = new byte[size];
             System.arraycopy(readBuffer.array(), 0, data, 0, size);
             String received = new String(data, "UTF-8");
-            messageProcessing(channel, received);
+            readBuffer.compact();
+            messageProcessing(channel,key,received);
         } catch (IOException e) {
             disconnect(channel, key, remoteAddr);
         }
     }
 
-    private static void messageProcessing(SocketChannel channel, String received) throws IOException{
-        StringTokenizer tokenizer = new StringTokenizer(received, "/");
-        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
-        String protocol = tokenizer.nextToken();
-        logger.info("[RECEIVED]: " + received);
-        switch (protocol) {
-            // 서버 접속 시
-            case REQUIRE_ACCESS:
-                String acceptMessage = tokenizer.nextToken();
-                logger.info("[클라이언트 정보]: " + acceptMessage);
-                randomChatRoom.enterSingleRoom(channel);
-                break;
-            case MESSAGING:
-                String roomNumber = tokenizer.nextToken();
-                String message = tokenizer.nextToken();
-                String clientInfo = tokenizer.nextToken();
-                randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(roomNumber), protocol, message+MSG_DELIM+clientInfo);
-                break;
-            case RE_CONNECT:
+    private static void messageProcessing(SocketChannel channel, SelectionKey key, String received) throws IOException {
+        try {
+            StringTokenizer tokenizer = new StringTokenizer(received, "/");
+            RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
+            String protocol = tokenizer.nextToken();
+            // logger.info("[RECEIVED]: " + received);
+            switch (protocol) {
+                // 서버 접속 시
+                case REQUIRE_ACCESS:
+                    String acceptMessage = tokenizer.nextToken();
+                    logger.info("[클라이언트 정보]: " + acceptMessage);
+                    randomChatRoom.enterSingleRoom(channel);
+                    break;
+                case MESSAGING:
+                    String roomNumber = tokenizer.nextToken();
+                    String message = tokenizer.nextToken();
+                    String clientInfo = tokenizer.nextToken();
+                    randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(roomNumber), protocol, message + MSG_DELIM + clientInfo);
+                    break;
+                case RE_CONNECT:
 //                logger.info("[새로운 사용자 다시 연결]");
-                String currentRoomNumber = tokenizer.nextToken();
-                String exitMessage = tokenizer.nextToken();
-                removeSingleRoom(channel);
-                randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(currentRoomNumber), protocol, exitMessage);
-                randomChatRoom.enterSingleRoom(channel);
-                break;
+                    String currentRoomNumber = tokenizer.nextToken();
+                    String exitMessage = tokenizer.nextToken();
+                    removeSingleRoom(channel);
+                    randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(currentRoomNumber), protocol, exitMessage);
+                    randomChatRoom.enterSingleRoom(channel);
+                    break;
+            }
+        }catch (Exception e){
+            // 메세지 파싱 실패 일 경우 연결 끊음.
+            disconnect(channel,key,channel.socket().getLocalSocketAddress());
         }
     }
 
