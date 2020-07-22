@@ -1,5 +1,6 @@
 package com.khs.chat.main;
 
+import model.SocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ public abstract class SocketManager extends BaseServer {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            ByteBuffer readBuffer = ByteBuffer.allocate(1200*3);
+            ByteBuffer readBuffer = ByteBuffer.allocate(1200 * 2); // GC 발생 시 어떻게 대처?
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
@@ -42,64 +43,42 @@ public abstract class SocketManager extends BaseServer {
                 disconnect(channel, key, remoteAddr);
                 return;
             }
-            byte[] data = new byte[size];
-            System.arraycopy(readBuffer.array(), 0, data, 0, size);
-            String received = new String(data, "UTF-8");
+            SocketClient client = (SocketClient) byteBufferToObject(readBuffer);
             readBuffer.compact();
-            messageProcessing(channel,key,received);
-        } catch (IOException e) {
+            messageProcessing(channel, key, client);
+        } catch (Exception e) {
             disconnect(channel, key, remoteAddr);
         }
     }
 
-    private static void messageProcessing(SocketChannel channel, SelectionKey key, String received) throws IOException {
+    private static void messageProcessing(SocketChannel channel, SelectionKey key, SocketClient client) throws IOException {
         try {
-            StringTokenizer tokenizer = new StringTokenizer(received, "/");
             RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
-            String protocol = tokenizer.nextToken();
             // logger.info("[RECEIVED]: " + received);
-            switch (protocol) {
+            switch (client.getProtocol()) {
                 // 서버 접속 시
                 case REQUIRE_ACCESS:
-                    String acceptMessage = tokenizer.nextToken();
-                    logger.info("[클라이언트 정보]: " + acceptMessage);
-                    randomChatRoom.enterSingleRoom(channel);
+                    randomChatRoom.enterSingleRoom(channel, client);
                     break;
                 case MESSAGING:
-                    String roomNumber = tokenizer.nextToken();
-                    String message = tokenizer.nextToken();
-                    String clientInfo = tokenizer.nextToken();
-                    randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(roomNumber), protocol, message + MSG_DELIM + clientInfo);
+                    randomChatRoom.broadcastSingleRoom(channel, client.getRoomNumber(), client);
                     break;
                 case RE_CONNECT:
 //                logger.info("[새로운 사용자 다시 연결]");
-                    String currentRoomNumber = tokenizer.nextToken();
-                    String exitMessage = tokenizer.nextToken();
                     removeSingleRoom(channel);
-                    randomChatRoom.broadcastSingleRoom(channel, Long.valueOf(currentRoomNumber), protocol, exitMessage);
-                    randomChatRoom.enterSingleRoom(channel);
+                    randomChatRoom.broadcastSingleRoom(channel, client.getRoomNumber(), client);
+                    if (client.getSelected().equals(FEMALE) || client.getGender().equals(FEMALE)) {
+                        randomChatRoom.enterSingleFemaleRoom(channel, client);
+                    } else
+                        randomChatRoom.enterSingleRoom(channel, client);
                     break;
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             // 메세지 파싱 실패 일 경우 연결 끊음.
-            disconnect(channel,key,channel.socket().getLocalSocketAddress());
+            disconnect(channel, key, channel.socket().getLocalSocketAddress());
         }
     }
 
-    private static Long removeSingleRoom(SocketChannel channel) throws IOException {
-        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
-        Map<SocketChannel, Long> currentSingleUsers = Collections.synchronizedMap(randomChatRoom.currentSingleChatRoomUsers);
-        List<SingleChatRoom> singleChatRooms = Collections.synchronizedList(randomChatRoom.singleChatRooms);
-        Long roomNumber = currentSingleUsers.get(channel);
-
-        for (SingleChatRoom currentRoom : singleChatRooms) {
-            if (currentRoom.roomNumber.equals(roomNumber) || currentRoom.socketChannels.contains(channel)) {
-                singleChatRooms.remove(currentRoom);
-                break;
-            }
-        }
-        return roomNumber;
-    }
 
     // 발신시 호출 함수
     protected static void send(SelectionKey key) throws IOException {
@@ -113,15 +92,37 @@ public abstract class SocketManager extends BaseServer {
         channel.register(selector, SelectionKey.OP_READ); // Socket 채널을 channel에 수신 등록한다
     }
 
-    protected static void disconnect(SocketChannel channel, SelectionKey key, SocketAddress addr) throws IOException {
-        Long roomNumber = removeSingleRoom(channel);
-        Iterator it = RandomChatRoom.getInstance().currentSingleChatRoomUsers.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<SocketChannel, Long> item = (Map.Entry<SocketChannel, Long>) it.next();
-            if (item.getKey().equals(channel)) {
-                it.remove();
+    private static Long removeSingleRoom(SocketChannel channel) throws IOException {
+        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
+        Map<SocketChannel, SocketClient> currentSingleUsers = Collections.synchronizedMap(randomChatRoom.currentSingleChatRoomUsers);
+        List<SingleChatRoom> singleChatRooms = Collections.synchronizedList(randomChatRoom.singleChatRooms);
+        List<SingleChatRoom> singleChatFemaleRooms = Collections.synchronizedList(randomChatRoom.singleChatFemaleRooms);
+        Long roomNumber = currentSingleUsers.get(channel).getRoomNumber();
+
+        for (SingleChatRoom currentRoom : singleChatRooms) {
+            if (currentRoom.roomNumber.equals(roomNumber)) {
+                singleChatRooms.remove(currentRoom);
+                break;
             }
         }
+
+        for (SingleChatRoom currentRoom : singleChatFemaleRooms) {
+            if (currentRoom.roomNumber.equals(roomNumber)) {
+                singleChatFemaleRooms.remove(currentRoom);
+                break;
+            }
+        }
+
+        return roomNumber;
+    }
+
+    protected static void disconnect(SocketChannel channel, SelectionKey key, SocketAddress addr) throws IOException {
+        Long roomNumber = removeSingleRoom(channel);
+        RandomChatRoom randomChatRoom = RandomChatRoom.getInstance();
+        Map<SocketChannel, SocketClient> currentSingleUsers = Collections.synchronizedMap(randomChatRoom.currentSingleChatRoomUsers);
+        Iterator it = currentSingleUsers.entrySet().iterator();
+        SocketClient target = currentSingleUsers.get(channel);
+        currentSingleUsers.remove(channel);
         try {
             channel.socket().close();
             channel.close();
@@ -130,9 +131,14 @@ public abstract class SocketManager extends BaseServer {
             logger.info(CLIENT_CONNECTION_CLOSE + ": " + addr);
             logger.info("[종료한 사용자 정보] - 방번호: " + String.valueOf(roomNumber));
             logger.info("[현재 사용자]: " + RandomChatRoom.getInstance().currentSingleChatRoomUsers.size());
-            logger.info("[현재 채팅방 ]: " + RandomChatRoom.getInstance().singleChatRooms.size());
+            logger.info("[현재 랜덤방 ]: " + RandomChatRoom.getInstance().singleChatRooms.size());
+            logger.info("[현재 여자방 ]: " + RandomChatRoom.getInstance().singleChatFemaleRooms.size());
             logger.info("***********************************************\n");
-            RandomChatRoom.getInstance().broadcastSingleRoom(channel, roomNumber, QUIT_CLIENT, MSG_QUIT_CLIENT);
+            if (target != null) {
+                target.setProtocol(QUIT_CLIENT);
+                target.setMessage(MSG_QUIT_CLIENT);
+                RandomChatRoom.getInstance().broadcastSingleRoom(channel, roomNumber, target);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

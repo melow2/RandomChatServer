@@ -1,18 +1,19 @@
 package com.khs.chat.main;
 
+import model.SocketClient;
+
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SingleChatRoom extends SocketManager {
-    public Long roomNumber;
-    public ArrayList<SocketChannel> socketChannels = new ArrayList<>();
-
-    public SingleChatRoom(SocketChannel socketChannel, long seed) {
-        roomNumber = seed;
-        addClient(socketChannel);
+    public Long roomNumber = 0L;
+    public Map<SocketChannel, SocketClient> socketClients = new HashMap<>();
+    public SingleChatRoom(SocketChannel socketChannel, SocketClient socketClient,Long roomNumber) {
+        this.roomNumber = roomNumber;
+        addClient(socketChannel, socketClient);
     }
-
-    public void addClient(SocketChannel socketChannel) {
-        socketChannels.add(socketChannel);
+    public void addClient(SocketChannel socketChannel, SocketClient socketClient) {
+        socketClients.put(socketChannel, socketClient);
     }
 }

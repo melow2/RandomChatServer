@@ -3,6 +3,8 @@ package com.khs.chat.main;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.*;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -24,6 +26,8 @@ public abstract class MessageConstants {
     protected static final String NEW_CLIENT = "NEW_CLIENT";
     protected static final String QUIT_CLIENT = "QUIT_CLIENT";
     protected static final String MSG_DELIM = "/";
+    protected static final String FEMALE="F";
+    protected static final String MALE="M";
 
     protected static final String MSG_WAITING_CLIENT = "낯선사람을 기다리고 있습니다..";
     protected static final String MSG_MEETING_CLIENT = "낯선사람을 만났습니다.";
@@ -31,9 +35,47 @@ public abstract class MessageConstants {
     private static final Logger logger = LoggerFactory.getLogger(MessageConstants.class);
 
     protected static ByteBuffer parseMessage(String msg) throws CharacterCodingException {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(1200*3);
+        ByteBuffer buffer = ByteBuffer.allocate(1200*2);
         buffer.clear();
         buffer = encoder.encode(CharBuffer.wrap(msg));
         return buffer;
+    }
+
+    public static Object byteBufferToObject(ByteBuffer byteBuffer)
+            throws Exception {
+        byte[] bytes = new byte[byteBuffer.limit()];
+        byteBuffer.get(bytes);
+        Object object = deSerializer(bytes);
+        return object;
+    }
+
+    public static ByteBuffer objectToByteBuffer(Object object) throws Exception {
+        ByteBuffer byteBuf = null;
+        byteBuf = ByteBuffer.wrap(serializer(object));
+        byteBuf.rewind();
+        return byteBuf;
+    }
+
+    public static Object deSerializer(byte[] bytes) throws IOException, ClassNotFoundException {
+        ObjectInputStream objectInputStream = new ObjectInputStream(new ByteArrayInputStream(bytes));
+        return objectInputStream.readObject();
+    }
+
+    public static byte[] serializer(Object object) throws IOException {
+        ObjectOutputStream objectOutputStream = null;
+        ByteArrayOutputStream byteArrayOutputStream;
+        try {
+            byteArrayOutputStream = new ByteArrayOutputStream();
+            objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+            objectOutputStream.writeObject(object);
+            objectOutputStream.flush();
+            return byteArrayOutputStream.toByteArray();
+        } catch (IOException e) {
+            throw e;
+        } finally {
+            if (objectOutputStream != null) {
+                objectOutputStream.close();
+            }
+        }
     }
 }
