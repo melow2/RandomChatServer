@@ -34,7 +34,7 @@ public abstract class SocketManager extends BaseServer {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            ByteBuffer readBuffer = ByteBuffer.allocate(1200 * 2); // GC 발생 시 어떻게 대처?
+            ByteBuffer readBuffer = ByteBuffer.allocate(1024); // GC 발생 시 어떻게 대처?
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
