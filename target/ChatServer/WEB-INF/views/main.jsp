@@ -3,8 +3,9 @@
 <!DOCTYPE html>
 <html>
 <body>
-<h2>랜덤채팅 서버 모니터링</h2>
-현재 방 개수: ${singleChatRooms}<br/>
-현재 접속자수: ${currentSingleChatRoomUsers}
+<h1>랜덤채팅 서버 모니터링</h1>
+현재 접속자수: ${currentSingleChatRoomUsers}<br/>
+현재 공개방: ${singleChatRooms}<br/>
+현재 여자방: ${singleChatFemaleRooms} <br/>
 </body>
 </html>
